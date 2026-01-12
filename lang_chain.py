@@ -5,8 +5,9 @@ from my_models import GEMINI_FLASH, MARITACA_SABIA
 from my_keys import GEMINI_API_KEY, MARITACA_API_KEY
 from my_helper import encode_image
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
-from langchain_core.output_parsers import StrOutputParser
+from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from langchain.globals import set_debug
+from detalhes_imagem_modelo import DetalhesImagemModelo
 
 llm = ChatGoogleGenerativeAI(
     api_key = GEMINI_API_KEY,
@@ -44,25 +45,36 @@ template_analisador = ChatPromptTemplate.from_messages(
     ]
 )
 
+
+
 cadeia = template_analisador | llm | StrOutputParser()
 
+json_imagem = JsonOutputParser(
+    pydantic_object=DetalhesImagemModelo
+)
+
 template_resposta = PromptTemplate(
-    template = """"
+    template = """
     Gere um resumo, utilizando uma linguagem clara e objetiva, focada no público brasileiro. A ideia é que a comunicação do resultado seja a mais facil possível, priorizando registros para consltas posteriores.
+
+    #resultado da imagem
     {resposta_cadeia_analise_imagem}
+
+    #formato de saida
+    {formato_saida}
+
     """,
-    input_variables = ["resposta_cadeia_analise_imagem"]
+    input_variables = ["resposta_cadeia_analise_imagem"],
+    partial_variables= {
+        "formato_saida": json_imagem.get_format_instructions()
+    }
 )
+ 
 
-llm_maritaca = ChatMaritalk(
-    api_key = MARITACA_API_KEY,
-    model = MARITACA_SABIA
-)
+cadeia_resumo = template_resposta | llm | json_imagem
+# Execute em duas etapas: primeiro análise da imagem, depois resumo
+resposta_analise = cadeia.invoke({"imagem_analisada": imagem})
 
-cadeia_resumo = template_resposta | llm_maritaca | StrOutputParser()
+resposta_resumo = cadeia_resumo.invoke({"resposta_cadeia_analise_imagem": resposta_analise})
 
-cadeia_completa = (cadeia | cadeia_resumo)
-
-resposta = cadeia_completa.invoke({"imagem_analisada": imagem})
-
-print(resposta)
+print(resposta_resumo)
