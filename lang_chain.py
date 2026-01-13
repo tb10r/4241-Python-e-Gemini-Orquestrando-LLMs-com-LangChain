@@ -72,7 +72,7 @@ template_resposta = PromptTemplate(
  
 
 cadeia_resumo = template_resposta | llm | json_imagem
-# Execute em duas etapas: primeiro análise da imagem, depois resumo
+
 resposta_analise = cadeia.invoke({"imagem_analisada": imagem})
 
 resposta_resumo = cadeia_resumo.invoke({"resposta_cadeia_analise_imagem": resposta_analise})
